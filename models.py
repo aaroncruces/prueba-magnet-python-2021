@@ -1,9 +1,9 @@
 # utils
-from utils import get
-from utils import post
+import json
+from utils import get,post,BASE_URL
 
 # typing
-from typing import List
+from typing import Dict, List
 
 
 class Dog(object):
@@ -81,6 +81,12 @@ class DogHouse(object):
         >>> token = 'some token'
         >>> dog_house.send_data(data=data, token=token)
     """
+
+    __API_URL="/api/v1"
+    __url_breeds=BASE_URL+__API_URL+"/breeds/"
+    __url_dogs=BASE_URL+__API_URL+"/dogs/"
+    __url_answer=BASE_URL+__API_URL+"/answer/"
+
     def __init__(self):
         self.breeds: List[Breed] = []
         self.dogs: List[Dog] = []
@@ -93,31 +99,92 @@ class DogHouse(object):
         the information, also consider the dogs and breeds fields
         of the DogHouse class to perform data manipulation.
         """
-        raise NotImplementedError
+        self.__getBreeds(token)
+        self.__getDogs(token)
+        self.__fillBreedsWithDogs()
+
+    def __getBreeds(self,token):
+        breedDictionaryList=self.__getBreedDictionaryList(token=token)
+        self.breeds=self.__getBreedObjectList(breedDictionaryList)
+        
+    
+    def __getDogs(self,token):
+        dogDictionaryList=self.__getDogDictionaryList(token=token)
+        self.dogs=self.dogs=self.__getDogObjectList(dogDictionaryList)  
+
+    def __fillBreedsWithDogs(self):
+        for breed in self.breeds:
+            for dog in self.dogs:
+                if breed.id == dog.breed:
+                    breed.add_dog(dog=dog)
+
+    def __getBreedObjectList(self,breedDictionaryList) -> List[Breed]:
+        return list(map(self.__parseDictionaryItemToBreed,breedDictionaryList))
+
+    def __getDogObjectList(self,dogDictionaryList) -> List[Dog]:
+        return list(map(self.__parseDictionaryItemToDog,dogDictionaryList))
+
+    def __parseDictionaryItemToBreed(self,itemDict:dict) -> Breed:
+        return Breed(id=itemDict["id"],name=itemDict["name"])
+
+    def __parseDictionaryItemToDog(self,itemDict:dict) -> Dog:
+        return Dog(id=itemDict["id"],name=itemDict["name"],breed=itemDict["breed"])
+
+    def __getBreedDictionaryList(self,token:str) -> List[Dict]:
+        return get(url=self.__url_breeds,token=token)["results"]
+    
+    def __getDogDictionaryList(self,token:str) -> List[Dict]:
+        return get(url=self.__url_dogs,token=token)["results"]
+
 
     def get_total_breeds(self) -> int:
         """
         Returns the amount of different breeds in the doghouse
         """
-        raise NotImplementedError
+        return len(self.breeds)
 
     def get_total_dogs(self) -> int:
         """
         Returns the amount of dogs in the doghouse
         """
-        raise NotImplementedError
+        return len(self.dogs)
 
     def get_common_breed(self) -> Breed:
         """
         Returns the most common breed in the doghouse
+
+        If there are 2 or more breed with the same high number (including 0):
+            I am returning the first one (depends on the policy)
         """
-        raise NotImplementedError
+
+        mostPopularBreed=self.breeds[0]
+        for breed in self.breeds:
+            if breed.dogs_count()>mostPopularBreed.dogs_count():
+                mostPopularBreed=breed
+                
+        return mostPopularBreed
 
     def get_common_dog_name(self) -> str:
         """
         Returns the most common dog name in the doghouse
         """
-        raise NotImplementedError
+
+        mostPopularDogName=self.dogs[0].name
+        highestAmount=1
+        dictAmountsDogsWithName={}
+
+        for dog in self.dogs:
+            if dog.name in dictAmountsDogsWithName:
+                dictAmountsDogsWithName[dog.name]+=1
+            else:
+                dictAmountsDogsWithName[dog.name]=1
+
+            if dictAmountsDogsWithName[dog.name]>highestAmount:
+                highestAmount=dictAmountsDogsWithName[dog.name]
+                mostPopularDogName=dog.name
+
+        return mostPopularDogName
+
 
     def send_data(self, data: dict, token: str):
         """
@@ -126,4 +193,5 @@ class DogHouse(object):
 
         Important!! We don't tell you if the answer is correct
         """
-        raise NotImplementedError
+        response=post(url=self.__url_answer,data=data,token=token)
+        print(response)
